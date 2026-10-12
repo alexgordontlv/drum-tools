@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Play Along</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+:root{
+  --bg:#0F1216; --panel:#171B21; --panel-2:#1F252C; --ink:#EAEEF2; --ink-2:#AEB6BF; --ink-3:#737C86;
+  --line:#2A313A; --accent:#5B8BFF; --accent-ink:#0B1020; --good:#3CCB8C; --ok:#E9B949; --bad:#FF6B6B;
+  --cy:#E9B949; --rd:#B98CFF; --hh:#5B8BFF; --sn:#FF6B9A; --t1:#3FD1B5; --t2:#1FA48C; --kk:#EAEEF2;
+  --font-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-display:"Barlow Condensed","Arial Narrow",Impact,sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased}
+.app{max-width:1200px;margin:0 auto;padding-inline:16px;padding-block:14px 40px;display:grid;gap:12px}
+header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{font-family:var(--font-display);font-size:26px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;margin:0}
+h2{font-family:var(--font-display);font-size:18px;font-weight:700;margin:0;color:var(--ink-2);text-transform:uppercase;letter-spacing:.06em}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;display:grid;gap:10px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.grow{flex:1;min-width:160px}
+button,select,input[type=text],input[type=number],input[type=url]{font:inherit;color:inherit;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-height:38px}
+button{cursor:pointer;font-weight:500}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-family:var(--font-display);font-size:20px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;min-width:110px}
+button.chip{border-radius:999px;padding:5px 11px;min-height:32px;font-size:13px}
+button.chip[aria-pressed="true"],button.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+label.small{font-size:12px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.08em;font-weight:600}
+input[type=number]{width:80px;font-variant-numeric:tabular-nums}
+input[type=range]{accent-color:var(--accent)}
+.source{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:820px){.source{grid-template-columns:1fr}}
+#ytwrap{position:relative;width:100%;aspect-ratio:16/9;max-height:300px;background:#000;border-radius:10px;overflow:hidden}
+#ytwrap iframe,#yt{position:absolute;inset:0;width:100%;height:100%}
+#ytwrap[hidden]{display:none}
+audio{width:100%}
+.stage{position:relative}
+canvas{width:100%;display:block;border-radius:10px;background:#0B0E12}
+.transport{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center}
+@media (max-width:700px){.transport{grid-template-columns:1fr}}
+.time{font-family:var(--font-mono);font-variant-numeric:tabular-nums;color:var(--ink-2);font-size:13px}
+.big{font-family:var(--font-display);font-size:38px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.score{display:grid;grid-template-columns:repeat(4,auto);gap:14px;align-items:baseline}
+.score b{font-family:var(--font-display);font-size:28px;font-weight:700}
+.score .g{color:var(--good)}.score .o{color:var(--ok)}.score .b2{color:var(--bad)}
+.hint{color:var(--ink-3);font-size:12px}
+.legend{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--ink-2)}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:4px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:820px){.two{grid-template-columns:1fr}}
+details summary{cursor:pointer;font-weight:600;color:var(--ink-2)}
+kbd{font:12px var(--font-body);background:var(--panel-2);border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:1px 6px}
+.keys{color:var(--ink-3);font-size:12px;display:flex;gap:12px;flex-wrap:wrap}
+.msg{font-size:13px;color:var(--ink-2);min-height:18px}
+.msg.err{color:var(--bad)}
+.secs{display:flex;gap:6px;flex-wrap:wrap}
+.secs button{font-size:12px;padding:5px 9px;min-height:30px}
+.midi-ok{color:var(--good)}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Play Along</h1>
+    <div class="keys"><span><kbd>Space</kbd> play/pause</span><span><kbd>←</kbd><kbd>→</kbd> bar</span><span><kbd>L</kbd> loop on/off</span><span><kbd>[</kbd> <kbd>]</kbd> set loop start/end</span><span><kbd>E</kbd> edit mode</span></div>
+  </header>
+
+  <section class="panel">
+    <div class="source">
+      <div style="display:grid;gap:8px">
+        <label class="small">Song source</label>
+        <div class="row"><input type="url" id="ytUrl" class="grow" placeholder="Paste a YouTube link (drumless or original)"><button id="ytLoad">Load video</button></div>
+        <div class="row"><input type="file" id="audioFile" accept="audio/*" class="grow"><span class="hint">or a local audio file (MP3, M4A, WAV)</span></div>
+        <div class="row"><button id="analyze" disabled>Rough chart from this audio</button><span class="hint" id="anMsg">Finds the tempo and writes kick / snare / hi-hat from the audio. Works on songs with drums; useless on drumless tracks.</span></div>
+        <div id="ytwrap" hidden><div id="yt"></div></div>
+        <audio id="audio" controls hidden></audio>
+        <div class="msg" id="srcMsg">No song loaded. Paste a YouTube link or choose a file.</div>
+      </div>
+      <div style="display:grid;gap:8px;align-content:start">
+        <label class="small">Chart</label>
+        <div class="row"><select id="library" class="grow"></select><button id="libLoad">Load chart</button></div>
+        <div class="row"><input type="file" id="chartFile" accept=".json,.mid,.midi" class="grow"><span class="hint">JSON chart or MIDI drum file</span></div>
+        <div class="row"><button id="newChart">New empty chart</button><button id="saveChart">Save to browser</button><button id="exportChart">Download JSON</button></div>
+        <div class="row"><label class="small">Saved</label><select id="savedList" class="grow"></select><button id="savedLoad">Open</button><button id="savedDelete">Delete</button></div>
+        <div class="msg" id="chartMsg"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="row" style="justify-content:space-between">
+      <div class="row"><span class="big" id="barNum">1</span><span class="time" id="timeTxt">0:00 · bar 1 of 0</span></div>
+      <div class="secs" id="secs"></div>
+      <div class="legend"><span><i style="background:var(--cy)"></i>crash</span><span><i style="background:var(--rd)"></i>ride</span><span><i style="background:var(--hh)"></i>hi-hat</span><span><i style="background:var(--sn)"></i>snare</span><span><i style="background:var(--t1)"></i>tom</span><span><i style="background:var(--t2)"></i>floor</span><span><i style="background:var(--kk)"></i>kick</span></div>
+    </div>
+    <div class="stage"><canvas id="cv" height="300"></canvas></div>
+    <div class="transport">
+      <button class="primary" id="play">Play</button>
+      <div class="row">
+        <button class="chip" id="loopBtn" aria-pressed="false">Loop</button>
+        <label class="small">from</label><input type="number" id="loopA" min="1" value="1"><label class="small">to</label><input type="number" id="loopB" min="1" value="4">
+        <button class="chip" id="repeatBtn" aria-pressed="false" title="Repeat the loop N times, then move the loop forward by one bar">Repeat ×</button><input type="number" id="repeatN" min="1" max="20" value="4" style="width:64px">
+        <label class="small">speed</label>
+        <select id="speed"><option value="0.5">0.5×</option><option value="0.75">0.75×</option><option value="1" selected>1×</option></select>
+        <button class="chip" id="clickBtn" aria-pressed="false">Click</button>
+        <button class="chip" id="countBtn" aria-pressed="true">Count-in</button>
+        <button class="chip" id="editBtn" aria-pressed="false">Edit</button>
+      </div>
+      <div class="score"><span><b class="g" id="sGood">0</b><br><span class="hint">on time</span></span><span><b class="o" id="sOk">0</b><br><span class="hint">early/late</span></span><span><b class="b2" id="sMiss">0</b><br><span class="hint">missed</span></span><span><b id="sPct">–</b><br><span class="hint">accuracy</span></span></div>
+    </div>
+    <div class="row"><span class="hint" id="midiMsg">E-drums: connect the Alesis module by USB and allow MIDI when Chrome asks. Hits are scored against the chart while the song plays.</span><button class="chip" id="midiBtn">Connect e-drums</button><button class="chip" id="resetScore">Reset score</button></div>
+  </section>
+
+  <div class="two">
+    <section class="panel">
+      <h2>Chart settings</h2>
+      <div class="row"><label class="small">Title</label><input type="text" id="cTitle" class="grow"></div>
+      <div class="row">
+        <label class="small">BPM</label><input type="number" id="cBpm" min="30" max="300" step="0.1"><button id="tapBpm">Tap</button>
+        <label class="small">Start offset (s)</label><input type="number" id="cOffset" step="0.01"><button id="setOffset" title="Sets the offset to the current song position: press it exactly on beat 1 of bar 1">Set to now</button>
+        <button id="nudgeL" title="−20 ms">−20ms</button><button id="nudgeR" title="+20 ms">+20ms</button>
+      </div>
+      <div class="row"><label class="small">Bars</label><input type="number" id="cBars" min="1" max="600"><button id="applyBars">Apply</button><span class="hint">Chart length. Bars added at the end copy the last bar.</span></div>
+      <div class="row"><label class="small">Section at current bar</label><input type="text" id="secName" placeholder="Verse, Chorus, Fill…" class="grow"><button id="secAdd">Mark</button><button id="secDel">Remove</button></div>
+      <p class="hint">Aligning a video: play it, pause exactly on the first drum hit of bar 1, press "Set to now". If the chart drifts later in the song, the BPM is slightly off: nudge it by 0.1 and watch the playhead against the snare hits.</p>
+    </section>
+    <section class="panel">
+      <h2>Edit mode</h2>
+      <p class="hint">Turn on Edit, then click a cell in the chart. Each click cycles: off → hit → accent → ghost (snare) / open (hi-hat) → off. Shift-click a column to clear it. Use the pattern buttons to fill the current bar quickly.</p>
+      <div class="row" id="patterns">
+        <button class="chip" data-p="rock8">Rock 8ths</button><button class="chip" data-p="rock16">16th hat</button><button class="chip" data-p="half">Half-time</button><button class="chip" data-p="thrash">Thrash</button><button class="chip" data-p="fillA">Fill A</button><button class="chip" data-p="clear">Clear bar</button><button class="chip" data-p="copyPrev">Copy previous bar</button><button class="chip" data-p="copyToEnd">Copy this bar to end of section</button>
+      </div>
+      <details><summary>Keyboard shortcuts in edit mode</summary><p class="hint">Click cell = toggle. <kbd>Shift</kbd>+click = clear column. Arrow keys move by bar. Charts are saved to this browser with "Save to browser"; "Download JSON" gives you a file to keep or share.</p></details>
+      <details><summary>Where charts come from</summary><p class="hint">Library charts marked "verified groove" were checked against the song's notation; the groove is right, section lengths are still approximate. Charts marked "unverified" are my best guess at the pattern and may be wrong: check them against the video's notation before trusting them. MIDI drum files of most famous songs exist online; import one and it becomes an exact chart. Or build your own in edit mode while looping the section.</p></details>
+    </section>
+  </div>
+</div>
+
+<script>
+(function(){
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const ROWS=["cy","rd","hh","sn","t1","t2","kk"];
+const ROWLAB={cy:"CR",rd:"RD",hh:"HH",sn:"SN",t1:"T1",t2:"FT",kk:"KK"};
+const COL={cy:"#E9B949",rd:"#B98CFF",hh:"#5B8BFF",sn:"#FF6B9A",t1:"#3FD1B5",t2:"#1FA48C",kk:"#EAEEF2"};
+// cell values: 0 off, 1 hit, 2 accent, 3 ghost (sn) / open (hh)
+function emptyBar(){const b={};ROWS.forEach(r=>b[r]=new Array(16).fill(0));return b;}
+function fromStr(o){const b=emptyBar();for(const r in o){if(!ROWS.includes(r))continue;const s=o[r];for(let i=0;i<16;i++){const c=s[i]||".";b[r][i]=c==="."?0:(c==="X"||c==="F")?2:(c==="g"||c==="o")?3:1;}}return b;}
+// pattern helpers (16-char strings)
+const PAT={
+ rock8:{hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.......x.x....."},
+ rock16:{hh:"XxxxXxxxXxxxXxxx",sn:"....x.......x...",kk:"x.......x......."},
+ half:{hh:"x.x.x.x.x.x.x.x.",sn:"........x.......",kk:"x.....x...x....."},
+ thrash:{hh:"x.x.x.x.x.x.x.x.",sn:"..x...x...x...x.",kk:"x...x...x...x..."},
+ fillA:{sn:"xxxxxxxx........",t1:"........xxxx....",t2:"............xxxx"},
+ crash1:{cy:"x..............."},
+};
+function mergePat(bar,p){const b=JSON.parse(JSON.stringify(bar));const f=fromStr(p);for(const r in p)b[r]=f[r];return b;}
+// =============================== LIBRARY (pattern-based, approximate)
+function build(title,bpm,sections){const bars=[],secs=[];let i=0;for(const s of sections){secs.push({bar:i,name:s.name});
+  for(let k=0;k<s.bars;k++){let b=fromStr(s.p);if(k===0&&s.crash!==false&&s.name!=="Intro")b=mergePat(b,PAT.crash1);if(s.fill&&k===s.bars-1)b=fromStr(s.fill);bars.push(b);i++;}}
+  return {title,bpm,offset:0,bars,sections:secs};}
+const Y_V={hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.......x...x..."},Y_C={hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.......x...x..."},Y_F={hh:"x.x.x.x.........",sn:"....x...xxxxxxxx",kk:"x.......x......."};
+const LIB={
+ yellow:build("Yellow · Coldplay · verified groove",86,[{name:"Intro",bars:8,p:Y_V},{name:"Verse 1",bars:16,p:Y_V,fill:Y_F},{name:"Chorus 1",bars:8,p:Y_C},{name:"Verse 2",bars:16,p:Y_V,fill:Y_F},{name:"Chorus 2",bars:8,p:Y_C},{name:"Bridge",bars:8,p:Y_V},{name:"Chorus 3",bars:16,p:Y_C},{name:"Outro",bars:8,p:Y_V}]),
+ sna:(()=>{const V0={ft:"x...x...x...x...",kk:"x...x...x...x..."},V1={ft:"x...x...x...x...",sn:"....x.......x...",kk:"x...x...x...x..."},T={cy:"x...............",kk:"x...x...x...x..."},C={cy:"x...x...x...x...",sn:"....x.......x...",kk:"x.......x......."},C3={cy:"x...x..x.x..x...",sn:"....x.......x...",kk:"x.......x......."},E={cy:"x...............",kk:"x..............."},R={};
+  const plan=[["Intro (count 4 bars)",R,4],["Riff",V0,12],["Verse 1",V1,8],["Build",T,2],["Chorus 1",C,2],[null,C3,1],[null,C,3],[null,C3,1],[null,C,1],["Build",T,2],["Break",E,1],[null,R,3],["Riff",V0,12],["Verse 2",V1,8],["Build",T,2],["Chorus 2",C,2],[null,C3,1],[null,C,3],[null,C3,1],[null,C,3],[null,C3,1],[null,C,3],[null,C3,1],[null,C,1],["Build",T,2],["Break",E,1],[null,R,3],["Riff",V0,14],["Verse 3",V1,6],["Build",T,2],["Chorus 3",C,2],[null,C3,1],[null,C,3],[null,C3,1],[null,C,2],["End",E,1]];
+  const bars=[],sections=[];for(const [name,pat,n] of plan){if(name)sections.push({bar:bars.length,name});for(let i=0;i<n;i++)bars.push(fromStr(pat));}
+  return {title:"Seven Nation Army · The White Stripes · transcribed from the drumless video",verified:true,bpm:124,offset:0.15,bars,sections,note:"Read bar by bar from the scrolling score (youtube 9sd6U92kaJQ). Verse: kick + floor tom on every beat; snare on 2 and 4 once the vocal starts. Chorus: crash on every beat, kick 1 and 3, snare 2 and 4; the first bar of each 4-bar phrase has a quarter-note triplet on the crash over beats 2–3, approximated here on the 16th grid."};})(),
+ bib:build("Back in Black · AC/DC · unverified",94,[{name:"Intro",bars:4,p:{hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.......x.x....."}},{name:"Verse",bars:16,p:{hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.......x.x....."},fill:{hh:"x.x.x.x.x.x.....",sn:"....x.......xxxx",kk:"x.......x.x....."}},{name:"Chorus",bars:8,p:{hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.......x.x....."}},{name:"Verse",bars:16,p:{hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.......x.x....."},fill:{hh:"x.x.x.x.x.x.....",sn:"....x.......xxxx",kk:"x.......x.x....."}},{name:"Chorus",bars:8,p:{hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.......x.x....."}},{name:"Solo",bars:16,p:{rd:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.......x.x....."}},{name:"Chorus",bars:16,p:{hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.......x.x....."}}]),
+ hth:build("Highway to Hell · AC/DC · unverified",116,[{name:"Intro",bars:8,p:{hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.......x.x....."}},{name:"Verse",bars:16,p:{hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.......x.x....."}},{name:"Chorus",bars:8,p:{cy:"x.......x.......",hh:"..x.x.x...x.x.x.",sn:"....x.......x...",kk:"x.......x.x....."}},{name:"Verse",bars:16,p:{hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.......x.x....."}},{name:"Chorus",bars:8,p:{cy:"x.......x.......",hh:"..x.x.x...x.x.x.",sn:"....x.......x...",kk:"x.......x.x....."}},{name:"Solo",bars:16,p:{rd:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.......x.x....."}},{name:"Chorus",bars:16,p:{cy:"x.......x.......",hh:"..x.x.x...x.x.x.",sn:"....x.......x...",kk:"x.......x.x....."}}]),
+ bj:build("Billie Jean · Michael Jackson · unverified",117,[{name:"Intro",bars:8,p:{hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.......x......."}},{name:"Verse",bars:32,p:{hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.......x......."}},{name:"Chorus",bars:16,p:{hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.......x......."}},{name:"Verse",bars:32,p:{hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.......x......."}},{name:"Chorus",bars:32,p:{hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.......x......."}}]),
+ teen:build("Smells Like Teen Spirit · Nirvana · unverified",117,[{name:"Intro (guitar)",bars:4,p:{}},{name:"Intro drums",bars:8,p:{cy:"x.......x.......",hh:"..x.x.x...x.x.x.",sn:"....x.......x...",kk:"x.x.....x.x....."}},{name:"Verse",bars:16,p:{hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.x.....x.x....."}},{name:"Pre-chorus",bars:8,p:{hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.x.....x.x....."},fill:{sn:"xxxxxxxxxxxx....",t1:"............xx..",t2:"..............xx"}},{name:"Chorus",bars:16,p:{cy:"x.......x.......",hh:"..x.x.x...x.x.x.",sn:"....x.......x...",kk:"x.x.....x.x....."}},{name:"Verse",bars:16,p:{hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.x.....x.x....."}},{name:"Pre-chorus",bars:8,p:{hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.x.....x.x....."},fill:{sn:"xxxxxxxxxxxx....",t1:"............xx..",t2:"..............xx"}},{name:"Chorus",bars:16,p:{cy:"x.......x.......",hh:"..x.x.x...x.x.x.",sn:"....x.......x...",kk:"x.x.....x.x....."}},{name:"Solo",bars:16,p:{cy:"x.......x.......",hh:"..x.x.x...x.x.x.",sn:"....x.......x...",kk:"x.x.....x.x....."}},{name:"Verse",bars:16,p:{hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.x.....x.x....."}},{name:"Pre-chorus",bars:8,p:{hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.x.....x.x....."}},{name:"Chorus + outro",bars:24,p:{cy:"x.......x.......",hh:"..x.x.x...x.x.x.",sn:"....x.......x...",kk:"x.x.....x.x....."}}]),
+ sandman:build("Enter Sandman · Metallica · unverified",123,[{name:"Intro (guitar)",bars:8,p:{}},{name:"Intro toms",bars:8,p:{t1:"x.x.x...........",t2:"........x.x.x...",kk:"......x.......x."}},{name:"Riff",bars:16,p:{hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x..x....x.xx...."}},{name:"Verse",bars:16,p:{hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x..x....x.xx...."}},{name:"Chorus",bars:16,p:{cy:"x.......x.......",hh:"..x.x.x...x.x.x.",sn:"....x.......x...",kk:"x..x....x.xx...."}},{name:"Verse",bars:16,p:{hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x..x....x.xx...."}},{name:"Chorus",bars:16,p:{cy:"x.......x.......",hh:"..x.x.x...x.x.x.",sn:"....x.......x...",kk:"x..x....x.xx...."}},{name:"Solo",bars:24,p:{rd:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x..x....x.xx...."}},{name:"Quiet section",bars:16,p:{hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.......x......."}},{name:"Chorus + outro",bars:32,p:{cy:"x.......x.......",hh:"..x.x.x...x.x.x.",sn:"....x.......x...",kk:"x..x....x.xx...."}}]),
+ cay:build("Come As You Are · Nirvana · unverified",120,[{name:"Intro (guitar)",bars:8,p:{}},{name:"Verse",bars:16,p:{hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.......x.x....."}},{name:"Chorus",bars:8,p:{hh:"x.x.x.x.x.o.x.o.",sn:"....x.......x...",kk:"x.......x.x....."}},{name:"Verse",bars:16,p:{hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.......x.x....."}},{name:"Chorus",bars:8,p:{hh:"x.x.x.x.x.o.x.o.",sn:"....x.......x...",kk:"x.......x.x....."}},{name:"Solo",bars:16,p:{cy:"x.......x.......",hh:"..x.x.x...x.x.x.",sn:"....x.......x...",kk:"x.......x.x....."}},{name:"Verse",bars:16,p:{hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.......x.x....."}},{name:"Chorus + outro",bars:16,p:{hh:"x.x.x.x.x.o.x.o.",sn:"....x.......x...",kk:"x.......x.x....."}}]),
+ song2:build("Song 2 · Blur · unverified",130,[{name:"Intro",bars:8,p:{hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.....x.x.....x."}},{name:"Chorus",bars:8,p:{cy:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.....x.x.....x."}},{name:"Verse",bars:16,p:{hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.....x.x.....x."}},{name:"Chorus",bars:8,p:{cy:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.....x.x.....x."}},{name:"Verse",bars:16,p:{hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.....x.x.....x."}},{name:"Chorus + outro",bars:16,p:{cy:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.....x.x.....x."}}]),
+ inbloom:build("In Bloom · Nirvana · unverified",78,[{name:"Intro",bars:8,p:{cy:"x.......x.......",hh:"..x.x.x...x.x.x.",sn:"........x.......",kk:"x.....x...x....."}},{name:"Verse",bars:16,p:{hh:"x.x.x.x.x.x.x.x.",sn:"........x.......",kk:"x.....x...x....."}},{name:"Chorus",bars:16,p:{cy:"x.......x.......",hh:"..x.x.x...x.x.x.",sn:"........x.......",kk:"x.....x...x....."},fill:{sn:"xxxx............",t1:"....xxxx........",t2:"........xxxxxxxx"}},{name:"Verse",bars:16,p:{hh:"x.x.x.x.x.x.x.x.",sn:"........x.......",kk:"x.....x...x....."}},{name:"Chorus",bars:16,p:{cy:"x.......x.......",hh:"..x.x.x...x.x.x.",sn:"........x.......",kk:"x.....x...x....."}},{name:"Solo",bars:8,p:{cy:"x.......x.......",hh:"..x.x.x...x.x.x.",sn:"........x.......",kk:"x.....x...x....."}},{name:"Chorus + outro",bars:24,p:{cy:"x.......x.......",hh:"..x.x.x...x.x.x.",sn:"........x.......",kk:"x.....x...x....."}}]),
+ everlong:build("Everlong · Foo Fighters · unverified",158,[{name:"Intro (guitar)",bars:8,p:{}},{name:"Intro drums",bars:8,p:{hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.....x.x.....x."}},{name:"Verse",bars:16,p:{hh:"RLRLRLRLRLRLRLRL",sn:"....x.......x...",kk:"x.......x......."}},{name:"Chorus",bars:16,p:{cy:"x.......x.......",hh:"..x.x.x...x.x.x.",sn:"....x.......x...",kk:"x.....x.x.....x."}},{name:"Verse",bars:16,p:{hh:"RLRLRLRLRLRLRLRL",sn:"....x.......x...",kk:"x.......x......."}},{name:"Chorus",bars:16,p:{cy:"x.......x.......",hh:"..x.x.x...x.x.x.",sn:"....x.......x...",kk:"x.....x.x.....x."}},{name:"Bridge (quiet)",bars:16,p:{hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.......x......."}},{name:"Chorus + outro",bars:32,p:{cy:"x.......x.......",hh:"..x.x.x...x.x.x.",sn:"....x.......x...",kk:"x.....x.x.....x."}}]),
+ basket:build("Basket Case · Green Day · unverified",168,[{name:"Intro (guitar/vocal)",bars:16,p:{}},{name:"Verse",bars:16,p:{hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.....x.x.....x."}},{name:"Chorus",bars:16,p:{cy:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.....x.x.....x."}},{name:"Verse",bars:16,p:{hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.....x.x.....x."}},{name:"Chorus",bars:16,p:{cy:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.....x.x.....x."}},{name:"Solo",bars:16,p:{cy:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.....x.x.....x."}},{name:"Chorus + outro",bars:24,p:{cy:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.....x.x.....x."}}]),
+ chop:build("Chop Suey! · System of a Down · unverified",125,[{name:"Intro",bars:8,p:{hh:"XxxxXxxxXxxxXxxx",sn:"....x.......x...",kk:"x.......x......."}},{name:"Verse",bars:16,p:{hh:"XxxxXxxxXxxxXxxx",sn:"....x.......x...",kk:"x.......x.x....."}},{name:"Chorus",bars:16,p:{cy:"x.......x.......",hh:"..x.x.x...x.x.x.",sn:"....x.......x...",kk:"x.....x.x.....x."}},{name:"Verse",bars:16,p:{hh:"XxxxXxxxXxxxXxxx",sn:"....x.......x...",kk:"x.......x.x....."}},{name:"Chorus",bars:16,p:{cy:"x.......x.......",hh:"..x.x.x...x.x.x.",sn:"....x.......x...",kk:"x.....x.x.....x."}},{name:"Bridge (slow)",bars:16,p:{rd:"x.x.x.x.x.x.x.x.",sn:"........x.......",kk:"x.....x...x....."}},{name:"Outro",bars:8,p:{cy:"x.......x.......",hh:"..x.x.x...x.x.x.",sn:"....x.......x...",kk:"x.....x.x.....x."}}]),
+ toxicity:build("Toxicity · System of a Down · unverified",121,[{name:"Intro (guitar)",bars:8,p:{}},{name:"Intro groove",bars:8,p:{hh:"x..x..x..x..x...",sn:"..x..x..x..x..x.",kk:"x.......x......."}},{name:"Verse",bars:16,p:{hh:"x.x.x.x.x.x.x.x.",sn:"...gx..g...gx..g",kk:"x.....x.x......."}},{name:"Chorus",bars:16,p:{cy:"x.......x.......",hh:"..x.x.x...x.x.x.",sn:"....F.......F...",kk:"x.....x.x.....x."}},{name:"Verse",bars:16,p:{hh:"x.x.x.x.x.x.x.x.",sn:"...gx..g...gx..g",kk:"x.....x.x......."}},{name:"Chorus",bars:16,p:{cy:"x.......x.......",hh:"..x.x.x...x.x.x.",sn:"....F.......F...",kk:"x.....x.x.....x."}},{name:"Bridge",bars:16,p:{rd:"x.x.x.x.x.x.x.x.",sn:"........x.......",kk:"x.....x...x....."}},{name:"Chorus + outro",bars:24,p:{cy:"x.......x.......",hh:"..x.x.x...x.x.x.",sn:"....F.......F...",kk:"x.....x.x.....x."}}]),
+ pretender:build("The Pretender · Foo Fighters · unverified",174,[{name:"Intro (quiet)",bars:16,p:{hh:"x...x...x...x...",sn:"....x.......x...",kk:"x.......x......."}},{name:"Verse",bars:16,p:{hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.....x.x.....x."}},{name:"Chorus",bars:16,p:{cy:"x.......x.......",hh:"..x.x.x...x.x.x.",sn:"....x.......x...",kk:"x.....x.x.....x."}},{name:"Verse",bars:16,p:{hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.....x.x.....x."}},{name:"Chorus",bars:16,p:{cy:"x.......x.......",hh:"..x.x.x...x.x.x.",sn:"....x.......x...",kk:"x.....x.x.....x."}},{name:"Bridge",bars:16,p:{hh:"x...x...x...x...",sn:"....x.......x...",kk:"x.......x......."}},{name:"Chorus + outro",bars:32,p:{cy:"x.......x.......",hh:"..x.x.x...x.x.x.",sn:"....x.......x...",kk:"x.....x.x.....x."}}]),
+ sadbut:build("Sad But True · Metallica · unverified",93,[{name:"Intro",bars:8,p:{rd:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.......x.x....."}},{name:"Verse",bars:16,p:{hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.......x.x....."}},{name:"Chorus",bars:8,p:{cy:"x.......x.......",hh:"..x.x.x...x.x.x.",sn:"....x.......x...",kk:"x.......x.x....."}},{name:"Verse",bars:16,p:{hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.......x.x....."}},{name:"Chorus",bars:8,p:{cy:"x.......x.......",hh:"..x.x.x...x.x.x.",sn:"....x.......x...",kk:"x.......x.x....."}},{name:"Solo",bars:16,p:{rd:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.......x.x....."}},{name:"Chorus + outro",bars:24,p:{cy:"x.......x.......",hh:"..x.x.x...x.x.x.",sn:"....x.......x...",kk:"x.......x.x....."}}]),
+ fwtbt:build("For Whom the Bell Tolls · Metallica · unverified",120,[{name:"Intro (bells)",bars:8,p:{}},{name:"Intro toms",bars:8,p:{t1:"x.x.x.x.........",t2:"........x.x.x.x.",kk:"x.......x......."}},{name:"Riff",bars:16,p:{hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.xx....x.xx...."}},{name:"Verse",bars:16,p:{hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.xx....x.xx...."}},{name:"Chorus",bars:8,p:{cy:"x.......x.......",hh:"..x.x.x...x.x.x.",sn:"....x.......x...",kk:"x.xx....x.xx...."}},{name:"Verse",bars:16,p:{hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.xx....x.xx...."}},{name:"Chorus + outro",bars:24,p:{cy:"x.......x.......",hh:"..x.x.x...x.x.x.",sn:"....x.......x...",kk:"x.xx....x.xx...."}}]),
+ duality:build("Duality · Slipknot · unverified",147,[{name:"Intro",bars:8,p:{hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x...RLRLx...RLRL"}},{name:"Verse",bars:16,p:{hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.x.....x.x....."}},{name:"Chorus",bars:16,p:{cy:"x.......x.......",hh:"..x.x.x...x.x.x.",sn:"....x.......x...",kk:"x...RLRLx...RLRL"}},{name:"Verse",bars:16,p:{hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"x.x.....x.x....."}},{name:"Chorus",bars:16,p:{cy:"x.......x.......",hh:"..x.x.x...x.x.x.",sn:"....x.......x...",kk:"x...RLRLx...RLRL"}},{name:"Bridge",bars:16,p:{hh:"x.x.x.x.x.x.x.x.",sn:"........x.......",kk:"x.....x...x....."}},{name:"Chorus + outro",bars:24,p:{cy:"x.......x.......",hh:"..x.x.x...x.x.x.",sn:"....x.......x...",kk:"x...RLRLx...RLRL"}}]),
+ batcountry:build("Bat Country · Avenged Sevenfold · unverified",190,[{name:"Intro",bars:16,p:{cy:"x.x.x.x.x.x.x.x.",sn:"..x...x...x...x.",kk:"x...x...x...x..."}},{name:"Verse",bars:16,p:{hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"RLRLRLRLRLRLRLRL"}},{name:"Chorus",bars:16,p:{cy:"x.......x.......",hh:"..x.x.x...x.x.x.",sn:"....x.......x...",kk:"x.x.....x.x....."}},{name:"Verse",bars:16,p:{hh:"x.x.x.x.x.x.x.x.",sn:"....x.......x...",kk:"RLRLRLRLRLRLRLRL"}},{name:"Chorus",bars:16,p:{cy:"x.......x.......",hh:"..x.x.x...x.x.x.",sn:"....x.......x...",kk:"x.x.....x.x....."}},{name:"Solo",bars:24,p:{cy:"x.x.x.x.x.x.x.x.",sn:"..x...x...x...x.",kk:"x...x...x...x..."}},{name:"Chorus + outro",bars:24,p:{cy:"x.......x.......",hh:"..x.x.x...x.x.x.",sn:"....x.......x...",kk:"x.x.....x.x....."}}]),
+ puppets:build("Master of Puppets · Metallica · unverified",212,[{name:"Intro",bars:16,p:{cy:"x.x.x.x.x.x.x.x.",sn:"..x...x...x...x.",kk:"x...x...x...x..."}},{name:"Verse",bars:32,p:{hh:"x.x.x.x.x.x.x.x.",sn:"..x...x...x...x.",kk:"x...x...x...x..."}},{name:"Chorus",bars:16,p:{cy:"x.......x.......",hh:"..x.x.x...x.x.x.",sn:"....x.......x...",kk:"x.x.....x.x....."}},{name:"Verse",bars:32,p:{hh:"x.x.x.x.x.x.x.x.",sn:"..x...x...x...x.",kk:"x...x...x...x..."}},{name:"Chorus",bars:16,p:{cy:"x.......x.......",hh:"..x.x.x...x.x.x.",sn:"....x.......x...",kk:"x.x.....x.x....."}},{name:"Clean middle",bars:48,p:{rd:"x.x.x.x.x.x.x.x.",sn:"........x.......",kk:"x.....x...x....."}},{name:"Heavy return",bars:32,p:{cy:"x.x.x.x.x.x.x.x.",sn:"..x...x...x...x.",kk:"x...x...x...x..."}},{name:"Verse",bars:32,p:{hh:"x.x.x.x.x.x.x.x.",sn:"..x...x...x...x.",kk:"x...x...x...x..."}},{name:"Chorus + outro",bars:32,p:{cy:"x.......x.......",hh:"..x.x.x...x.x.x.",sn:"....x.......x...",kk:"x.x.....x.x....."}}]),
+};
+// =============================== STATE
+let chart=null;              // {title,bpm,offset,bars:[{row:[16]}],sections:[{bar,name}]}
+let src=null;                // {kind:"yt"|"audio", ...}
+let playing=false,loop=false,repeat=false,repeatCount=0,edit=false,clickOn=false,countIn=true;
+let speed=1;
+let score={good:0,ok:0,miss:0,extra:0},hitMarks=new Map(); // key bar:row:step -> "good"|"ok"|"miss"
+let matched=new Set();
+const LSKEY="playalong.charts";
+
+function stepDur(){return 60/chart.bpm/4;}
+function barDur(){return stepDur()*16;}
+function totalBars(){return chart?chart.bars.length:0;}
+function timeToPos(t){const x=(t-chart.offset)/stepDur();return x;} // in steps (float)
+function posToTime(steps){return chart.offset+steps*stepDur();}
+function barStartTime(b){return posToTime(b*16);}
+
+// =============================== SOURCE: YouTube
+let yt=null,ytReady=false,ytPending=null,lastT=0,lastTs=0,lastRate=1;
+window.onYouTubeIframeAPIReady=function(){ytReady=true;if(ytPending){createYT(ytPending);ytPending=null;}};
+function ensureYTApi(){if(window.YT&&window.YT.Player){ytReady=true;return;}if(document.getElementById("ytapi"))return;const s=document.createElement("script");s.id="ytapi";s.src="https://www.youtube.com/iframe_api";document.head.appendChild(s);}
+function parseYT(u){const m=u.match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([A-Za-z0-9_-]{11})/);return m?m[1]:null;}
+function createYT(id){$("#ytwrap").hidden=false;$("#audio").hidden=true;
+  if(yt){yt.loadVideoById(id);src={kind:"yt"};setMsg("#srcMsg","Video loaded.");return;}
+  yt=new YT.Player("yt",{videoId:id,playerVars:{controls:1,rel:0,modestbranding:1,playsinline:1},events:{
+    onReady:()=>{src={kind:"yt"};setMsg("#srcMsg","Video loaded. Play it, pause on the first drum hit, press \"Set to now\" in Chart settings.");applySpeed();},
+    onStateChange:e=>{playing=e.data===YT.PlayerState.PLAYING;$("#play").textContent=playing?"Pause":"Play";if(playing)tick();},
+    onError:e=>setMsg("#srcMsg","YouTube refused to play this video here (error "+e.data+"). Some videos block embedding; try another upload of the song, or run this page from a local web server (see note at the bottom).",true)}});}
+const FILE_MODE=location.protocol==="file:";
+$("#ytLoad").addEventListener("click",()=>{const id=parseYT($("#ytUrl").value.trim());if(!id){setMsg("#srcMsg","That doesn't look like a YouTube link.",true);return;}
+  if(FILE_MODE){setMsg("#srcMsg","YouTube can't play when this page is opened as a file. Close this tab and double-click \"Start Play Along.command\" in the same folder: it opens the page at localhost, where YouTube works. Local audio files work either way.",true);return;}
+  ensureYTApi();if(ytReady)createYT(id);else{ytPending=id;setMsg("#srcMsg","Loading the YouTube player…");
+    setTimeout(()=>{if(ytPending===id&&!ytReady)setMsg("#srcMsg","The YouTube player didn't answer. Check the internet connection, or that no ad blocker is blocking youtube.com on this page.",true);},8000);}});
+// =============================== SOURCE: local audio
+const audio=$("#audio");
+$("#audioFile").addEventListener("change",e=>{const f=e.target.files[0];if(!f)return;audio.src=URL.createObjectURL(f);audio.hidden=false;$("#ytwrap").hidden=true;src={kind:"audio"};audio.preservesPitch=true;audio.mozPreservesPitch=true;setMsg("#srcMsg",f.name+" loaded.");applySpeed();lastAudioFile=f;$("#analyze").disabled=false;});
+let lastAudioFile=null;
+audio.addEventListener("play",()=>{playing=true;$("#play").textContent="Pause";tick();});audio.addEventListener("pause",()=>{playing=false;$("#play").textContent="Play";});
+// unified transport
+function now(){if(!src)return 0;if(src.kind==="audio")return audio.currentTime;
+  // interpolate between polls
+  if(playing){const t=yt.getCurrentTime();if(t!==lastT){lastT=t;lastTs=performance.now();}return lastT+(performance.now()-lastTs)/1000*lastRate;}return yt.getCurrentTime();}
+function seek(t){t=Math.max(0,t);if(!src)return;if(src.kind==="audio")audio.currentTime=t;else{yt.seekTo(t,true);lastT=t;lastTs=performance.now();}}
+function playPause(){if(!src){setMsg("#srcMsg","Load a song first.",true);return;}
+  if(playing){src.kind==="audio"?audio.pause():yt.pauseVideo();return;}
+  if(countIn&&chart){doCountIn(()=>go());}else go();
+  function go(){if(loop){const a=barStartTime(+$("#loopA").value-1);const t=now();if(t<a-0.05||t>barStartTime(+$("#loopB").value)-0.05)seek(a);}src.kind==="audio"?audio.play():yt.playVideo();}}
+$("#play").addEventListener("click",playPause);
+function applySpeed(){speed=+$("#speed").value;if(!src)return;if(src.kind==="audio")audio.playbackRate=speed;else{yt.setPlaybackRate(speed);lastRate=speed;}}
+$("#speed").addEventListener("change",applySpeed);
+function setMsg(sel,txt,err){const el=$(sel);el.textContent=txt;el.classList.toggle("err",!!err);}
+
+// =============================== CLICK + COUNT-IN (Web Audio)
+let actx=null;function ac(){if(!actx)actx=new (window.AudioContext||window.webkitAudioContext)();if(actx.state==="suspended")actx.resume();return actx;}
+function clickAt(t,acc){const c=ac();const o=c.createOscillator(),g=c.createGain();o.type="square";o.frequency.value=acc?1600:1000;g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(acc?0.5:0.3,t+0.002);g.gain.exponentialRampToValueAtTime(0.0001,t+0.04);o.connect(g);g.connect(c.destination);o.start(t);o.stop(t+0.06);}
+function doCountIn(then){const c=ac();const d=60/chart.bpm/speed;const t0=c.currentTime+0.05;for(let i=0;i<4;i++)clickAt(t0+i*d,i===0);setTimeout(then,Math.round(4*d*1000));}
+let lastClickStep=-1;
+function maybeClick(steps){const s=Math.floor(steps);if(s!==lastClickStep){if(clickOn&&s%4===0&&s>=0){clickAt(ac().currentTime,s%16===0);}lastClickStep=s;}}
+
+// =============================== MAIN LOOP
+let raf=null;
+function tick(){cancelAnimationFrame(raf);const step=()=>{if(!chart||!src){draw();return;}const t=now();const steps=timeToPos(t);
+    if(playing){maybeClick(steps);
+      if(loop){const A=+$("#loopA").value-1,B=+$("#loopB").value;const end=barStartTime(B);if(t>=end-0.02){
+        if(repeat){repeatCount++;if(repeatCount>=+$("#repeatN").value){repeatCount=0;$("#loopA").value=A+2;$("#loopB").value=B+1;if(B+1>totalBars()){$("#loopA").value=1;$("#loopB").value=Math.min(4,totalBars());}}}
+        seek(barStartTime(+$("#loopA").value-1));}}
+      else if(t>=barStartTime(totalBars())+0.5){/* end */}
+    }
+    draw(steps);if(playing)raf=requestAnimationFrame(step);};raf=requestAnimationFrame(step);}
+
+// =============================== DRAW
+const cv=$("#cv"),ctx=cv.getContext("2d");
+function resize(){const r=cv.getBoundingClientRect();const dpr=window.devicePixelRatio||1;cv.width=Math.floor(r.width*dpr);cv.height=Math.floor(300*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);draw();}
+window.addEventListener("resize",resize);
+const VIS=4; // bars visible
+let viewBar=0; // when paused, which bar the view starts at
+function draw(steps){const W=cv.getBoundingClientRect().width,H=300;ctx.clearRect(0,0,W,H);
+  if(!chart){ctx.fillStyle="#737C86";ctx.font="14px "+getComputedStyle(document.body).fontFamily;ctx.fillText("Load a chart to see the grooves here.",16,40);return;}
+  const labW=34,top=26,rowH=(H-top-24)/ROWS.length,gridW=W-labW-8,stepW=gridW/(VIS*16);
+  let pos=steps;if(steps===undefined||!playing&&!isFinite(steps))pos=viewBar*16;
+  if(!playing&&steps!==undefined)viewBar=Math.max(0,Math.floor(steps/16));
+  // scroll: playhead sits at 1/4 of the width while playing
+  let startStep=playing?pos-VIS*16/4:viewBar*16;startStep=Math.max(-16,Math.min(startStep,totalBars()*16-VIS*16+16));
+  const xOf=s=>labW+(s-startStep)*stepW;
+  const curBar=Math.floor(pos/16),curStep=Math.floor(pos);
+  // row labels + lines
+  ctx.font="11px "+getComputedStyle(document.body).getPropertyValue("--font-mono");
+  ROWS.forEach((r,i)=>{const y=top+i*rowH;ctx.fillStyle="#737C86";ctx.fillText(ROWLAB[r],6,y+rowH/2+4);ctx.fillStyle="rgba(255,255,255,0.03)";if(i%2)ctx.fillRect(labW,y,gridW,rowH);});
+  // bars
+  const b0=Math.max(0,Math.floor(startStep/16)),b1=Math.min(totalBars()-1,Math.ceil((startStep+VIS*16)/16));
+  const loopA=+$("#loopA").value-1,loopB=+$("#loopB").value-1;
+  for(let b=b0;b<=b1;b++){const x=xOf(b*16),w=stepW*16;
+    if(loop&&b>=loopA&&b<=loopB){ctx.fillStyle="rgba(91,139,255,0.08)";ctx.fillRect(x,top,w,rowH*ROWS.length);}
+    if(b===curBar&&playing){ctx.fillStyle="rgba(255,255,255,0.03)";ctx.fillRect(x,top,w,rowH*ROWS.length);}
+    ctx.strokeStyle="rgba(255,255,255,0.18)";ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(x+0.5,top-8);ctx.lineTo(x+0.5,top+rowH*ROWS.length);ctx.stroke();
+    for(let q=1;q<4;q++){ctx.strokeStyle="rgba(255,255,255,0.07)";ctx.beginPath();ctx.moveTo(x+q*4*stepW+0.5,top);ctx.lineTo(x+q*4*stepW+0.5,top+rowH*ROWS.length);ctx.stroke();}
+    ctx.fillStyle="#AEB6BF";ctx.font="12px "+getComputedStyle(document.body).getPropertyValue("--font-mono");ctx.fillText(String(b+1),x+4,top-11);
+    const sec=chart.sections.find(s=>s.bar===b);if(sec){ctx.fillStyle="#5B8BFF";ctx.font="600 11px "+getComputedStyle(document.body).fontFamily;ctx.fillText(sec.name.toUpperCase(),x+22,top-11);}
+    const bar=chart.bars[b];
+    ROWS.forEach((r,i)=>{const y=top+i*rowH;for(let s=0;s<16;s++){const v=bar[r][s];if(!v)continue;const cx=xOf(b*16+s)+stepW/2,cy=y+rowH/2;const key=b+":"+r+":"+s;const m=hitMarks.get(key);
+      let rad=Math.min(stepW*0.42,rowH*0.36);if(v===3)rad*=0.6;
+      ctx.beginPath();if(r==="cy"||r==="rd"){ctx.moveTo(cx-rad,cy-rad);ctx.lineTo(cx+rad,cy+rad);ctx.moveTo(cx+rad,cy-rad);ctx.lineTo(cx-rad,cy+rad);ctx.strokeStyle=COL[r];ctx.lineWidth=v===2?3:2;ctx.stroke();}
+      else{ctx.arc(cx,cy,rad,0,Math.PI*2);ctx.fillStyle=COL[r];if(v===3&&r==="hh"){ctx.lineWidth=2;ctx.strokeStyle=COL[r];ctx.stroke();}else ctx.fill();if(v===2){ctx.lineWidth=2;ctx.strokeStyle="#fff";ctx.stroke();}}
+      if(m){ctx.beginPath();ctx.arc(cx,cy,rad+3,0,Math.PI*2);ctx.lineWidth=2;ctx.strokeStyle=m==="good"?"#3CCB8C":m==="ok"?"#E9B949":"#FF6B6B";ctx.stroke();}
+      const past=playing&&(b*16+s)<curStep-0.0001;if(past&&!m&&r!=="cy"&&r!=="rd"){/* nothing */}
+    }});}
+  // beat numbers bottom
+  ctx.fillStyle="#737C86";ctx.font="10px "+getComputedStyle(document.body).getPropertyValue("--font-mono");
+  for(let b=b0;b<=b1;b++)for(let q=0;q<4;q++)ctx.fillText(String(q+1),xOf(b*16+q*4)+3,H-8);
+  // playhead
+  if(src){const x=xOf(pos);ctx.strokeStyle="#EAEEF2";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x,top-10);ctx.lineTo(x,top+rowH*ROWS.length+4);ctx.stroke();}
+  $("#barNum").textContent=Math.max(1,curBar+1);const t=src?now():0;$("#timeTxt").textContent=fmt(t)+" · bar "+Math.max(1,curBar+1)+" of "+totalBars();
+  // edit hit target cache
+  draw.geom={labW,top,rowH,stepW,startStep};}
+function fmt(t){t=Math.max(0,t);return Math.floor(t/60)+":"+String(Math.floor(t%60)).padStart(2,"0");}
+cv.addEventListener("click",e=>{if(!chart)return;const g=draw.geom;if(!g)return;const r=cv.getBoundingClientRect();const x=e.clientX-r.left,y=e.clientY-r.top;
+  const step=Math.floor(g.startStep+(x-g.labW)/g.stepW);const row=Math.floor((y-g.top)/g.rowH);if(step<0||row<0||row>=ROWS.length)return;const b=Math.floor(step/16),s=step%16;if(b>=totalBars())return;
+  if(!edit){seek(barStartTime(b));viewBar=b;draw(b*16);return;}
+  const rk=ROWS[row];if(e.shiftKey){ROWS.forEach(k=>chart.bars[b][k][s]=0);}else{const v=chart.bars[b][rk][s];const max=(rk==="sn"||rk==="hh")?3:2;chart.bars[b][rk][s]=(v+1)%(max+1);}
+  draw(b*16);});
+// =============================== CHART UI
+function setChart(c){chart=c;hitMarks.clear();matched.clear();resetScore();$("#cTitle").value=c.title||"";$("#cBpm").value=c.bpm;$("#cOffset").value=c.offset||0;$("#cBars").value=c.bars.length;$("#loopA").value=1;$("#loopB").value=Math.min(4,c.bars.length);viewBar=0;renderSecs();draw(0);setMsg("#chartMsg",`Chart: ${c.title} · ${c.bars.length} bars · ${c.bpm} bpm`);}
+function renderSecs(){const h=$("#secs");h.innerHTML="";if(!chart)return;chart.sections.forEach(s=>{const b=document.createElement("button");b.textContent=s.name;b.title="Bar "+(s.bar+1);b.addEventListener("click",()=>{seek(barStartTime(s.bar));viewBar=s.bar;$("#loopA").value=s.bar+1;const nx=chart.sections.find(x=>x.bar>s.bar);$("#loopB").value=nx?nx.bar:totalBars();draw(s.bar*16);});h.appendChild(b);});}
+$("#cTitle").addEventListener("change",e=>{if(chart)chart.title=e.target.value;});
+$("#cBpm").addEventListener("change",e=>{if(chart){chart.bpm=+e.target.value||chart.bpm;draw();}});
+$("#cOffset").addEventListener("change",e=>{if(chart){chart.offset=+e.target.value||0;draw();}});
+$("#setOffset").addEventListener("click",()=>{if(!chart||!src)return;chart.offset=+now().toFixed(3);$("#cOffset").value=chart.offset;draw(0);setMsg("#chartMsg","Offset set to "+chart.offset+" s. Bar 1 starts there.");});
+$("#nudgeL").addEventListener("click",()=>{if(chart){chart.offset=+(chart.offset-0.02).toFixed(3);$("#cOffset").value=chart.offset;draw();}});
+$("#nudgeR").addEventListener("click",()=>{if(chart){chart.offset=+(chart.offset+0.02).toFixed(3);$("#cOffset").value=chart.offset;draw();}});
+$("#applyBars").addEventListener("click",()=>{if(!chart)return;const n=Math.max(1,+$("#cBars").value|0);while(chart.bars.length<n)chart.bars.push(JSON.parse(JSON.stringify(chart.bars[chart.bars.length-1]||emptyBar())));chart.bars.length=n;chart.sections=chart.sections.filter(s=>s.bar<n);renderSecs();draw();});
+let tapT=[];$("#tapBpm").addEventListener("click",()=>{const t=performance.now();tapT=tapT.filter(x=>t-x<2500);tapT.push(t);if(tapT.length>=3){const iv=[];for(let i=1;i<tapT.length;i++)iv.push(tapT[i]-tapT[i-1]);const bpm=60000/(iv.reduce((a,b)=>a+b,0)/iv.length);$("#cBpm").value=bpm.toFixed(1);if(chart){chart.bpm=+bpm.toFixed(1);draw();}}});
+$("#secAdd").addEventListener("click",()=>{if(!chart)return;const b=viewBar;const name=$("#secName").value.trim()||"Section";chart.sections=chart.sections.filter(s=>s.bar!==b);chart.sections.push({bar:b,name});chart.sections.sort((a,b)=>a.bar-b.bar);renderSecs();draw();});
+$("#secDel").addEventListener("click",()=>{if(!chart)return;chart.sections=chart.sections.filter(s=>s.bar!==viewBar);renderSecs();draw();});
+$("#patterns").addEventListener("click",e=>{const b=e.target.closest("button");if(!b||!chart)return;const p=b.dataset.p;const i=viewBar;
+  if(p==="clear")chart.bars[i]=emptyBar();else if(p==="copyPrev"){if(i>0)chart.bars[i]=JSON.parse(JSON.stringify(chart.bars[i-1]));}
+  else if(p==="copyToEnd"){const nx=chart.sections.find(x=>x.bar>i);const end=nx?nx.bar:totalBars();for(let k=i+1;k<end;k++)chart.bars[k]=JSON.parse(JSON.stringify(chart.bars[i]));}
+  else chart.bars[i]=mergePat(chart.bars[i],PAT[p]);draw();});
+// library / saved / files
+window.__LIB=LIB;
+function fillLibrary(){$("#library").innerHTML="";Object.keys(LIB).forEach(k=>{const o=document.createElement("option");o.value=k;o.textContent=LIB[k].title;$("#library").appendChild(o);});}
+fillLibrary();
+$("#libLoad").addEventListener("click",()=>setChart(JSON.parse(JSON.stringify(LIB[$("#library").value]))));
+// hosted charts: charts.json next to this page overrides/extends the built-in library
+(async()=>{try{if(location.protocol==="file:")return;const r=await fetch("charts.json?v="+Date.now(),{cache:"no-store"});if(!r.ok)return;const d=await r.json();
+  for(const c of d.charts){LIB[c.id]=c.chart;}fillLibrary();
+  const first=d.charts.find(c=>c.chart.verified)||d.charts[0];if(first){$("#library").value=first.id;setChart(JSON.parse(JSON.stringify(first.chart)));}
+  setMsg("#chartMsg","Chart library loaded ("+d.charts.length+" songs, updated "+(d.updated||"")+").");}catch(e){}})();
+$("#newChart").addEventListener("click",()=>setChart({title:"New chart",bpm:120,offset:0,bars:Array.from({length:8},()=>fromStr(PAT.rock8)),sections:[{bar:0,name:"Section 1"}]}));
+function savedAll(){try{return JSON.parse(localStorage.getItem(LSKEY)||"{}");}catch(e){return{};}}
+function renderSaved(){const s=savedAll();const sel=$("#savedList");sel.innerHTML="";Object.keys(s).forEach(k=>{const o=document.createElement("option");o.value=k;o.textContent=k;sel.appendChild(o);});}
+$("#saveChart").addEventListener("click",()=>{if(!chart)return;const s=savedAll();s[chart.title||"Untitled"]=chart;try{localStorage.setItem(LSKEY,JSON.stringify(s));setMsg("#chartMsg","Saved \""+chart.title+"\" in this browser.");}catch(e){setMsg("#chartMsg","Could not save (browser storage blocked).",true);}renderSaved();});
+$("#savedLoad").addEventListener("click",()=>{const s=savedAll();const c=s[$("#savedList").value];if(c)setChart(JSON.parse(JSON.stringify(c)));});
+$("#savedDelete").addEventListener("click",()=>{const s=savedAll();delete s[$("#savedList").value];localStorage.setItem(LSKEY,JSON.stringify(s));renderSaved();});
+$("#exportChart").addEventListener("click",()=>{if(!chart)return;const blob=new Blob([JSON.stringify(chart)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=(chart.title||"chart").replace(/[^\w\- ]+/g,"")+".json";a.click();});
+$("#chartFile").addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;if(/\.json$/i.test(f.name)){try{const c=JSON.parse(await f.text());if(!c.bars)throw 0;setChart(c);}catch(err){setMsg("#chartMsg","Not a valid chart JSON.",true);}}
+  else{try{setChart(midiToChart(new Uint8Array(await f.arrayBuffer()),f.name));}catch(err){setMsg("#chartMsg","Could not read that MIDI file: "+err.message,true);}}});
+
+// =============================== MIDI FILE IMPORT
+function midiToChart(u8,name){let p=0;const rd32=()=>(u8[p++]<<24|u8[p++]<<16|u8[p++]<<8|u8[p++])>>>0,rd16=()=>(u8[p++]<<8|u8[p++]);
+  const str=n=>{let s="";for(let i=0;i<n;i++)s+=String.fromCharCode(u8[p++]);return s;};const vlq=()=>{let v=0,b;do{b=u8[p++];v=(v<<7)|(b&0x7f);}while(b&0x80);return v;};
+  if(str(4)!=="MThd")throw new Error("no MThd");const hl=rd32();const fmt=rd16(),ntr=rd16(),div=rd16();p+=hl-6;if(div&0x8000)throw new Error("SMPTE timing not supported");
+  const notes=[],tempos=[{tick:0,us:500000}];
+  for(let t=0;t<ntr;t++){if(str(4)!=="MTrk")throw new Error("no MTrk");const len=rd32();const end=p+len;let tick=0,rs=0;
+    while(p<end){tick+=vlq();let st=u8[p];if(st<0x80){st=rs;}else{p++;rs=st;}
+      if(st===0xFF){const type=u8[p++];const l=vlq();if(type===0x51){tempos.push({tick,us:(u8[p]<<16|u8[p+1]<<8|u8[p+2])});}p+=l;}
+      else if(st===0xF0||st===0xF7){const l=vlq();p+=l;}
+      else{const hi=st&0xF0,ch=st&0x0F;if(hi===0x90){const n=u8[p++],v=u8[p++];if(v>0)notes.push({tick,n,v,ch});}
+        else if(hi===0x80||hi===0xA0||hi===0xB0||hi===0xE0)p+=2;else if(hi===0xC0||hi===0xD0)p+=1;}}
+    p=end;}
+  tempos.sort((a,b)=>a.tick-b.tick);
+  // tick -> seconds
+  const segs=[];let sec=0;for(let i=0;i<tempos.length;i++){const t=tempos[i];const nt=tempos[i+1];segs.push({tick:t.tick,sec,us:t.us});if(nt)sec+=(nt.tick-t.tick)/div*t.us/1e6;}
+  const toSec=tk=>{let s=segs[0];for(const g of segs){if(g.tick<=tk)s=g;else break;}return s.sec+(tk-s.tick)/div*s.us/1e6;};
+  const drumCh=notes.some(n=>n.ch===9)?notes.filter(n=>n.ch===9):notes;
+  if(!drumCh.length)throw new Error("no drum notes found");
+  const bpm=60e6/segs[0].us;const stepTicks=div/4;
+  const map=n=>n===35||n===36?"kk":n===38||n===40||n===37?"sn":n===42||n===44?"hh":n===46?"hh":n===49||n===57||n===55||n===52?"cy":n===51||n===59||n===53?"rd":n===48||n===50||n===47?"t1":n===45||n===43||n===41?"t2":null;
+  const lastTick=Math.max(...drumCh.map(n=>n.tick));const nb=Math.ceil((lastTick+1)/(stepTicks*16));const bars=Array.from({length:nb},emptyBar);
+  for(const n of drumCh){const r=map(n.n);if(!r)continue;const st=Math.round(n.tick/stepTicks);const b=Math.floor(st/16),s=st%16;if(b>=nb)continue;let v=n.v<40&&r==="sn"?3:n.v>110?2:1;if(n.n===46)v=3;if(n.n===37)v=3;bars[b][r][s]=Math.max(bars[b][r][s],v);}
+  // trim leading empty bars into offset
+  let first=0;while(first<nb&&ROWS.every(r=>bars[first][r].every(x=>!x)))first++;
+  const offset=toSec(first*stepTicks*16);
+  return {title:name.replace(/\.(mid|midi)$/i,""),bpm:+bpm.toFixed(2),offset:+offset.toFixed(3),bars:bars.slice(first),sections:[{bar:0,name:"Start"}],note:tempos.length>2?"Tempo changes in the MIDI were flattened to the first tempo.":""};}
+
+// =============================== LIVE MIDI (e-drums)
+const NOTE2ROW=n=>n===35||n===36?"kk":n===38||n===40||n===37?"sn":n===42||n===44||n===46?"hh":n===49||n===57||n===55||n===52?"cy":n===51||n===59||n===53?"rd":n===48||n===50||n===47?"t1":n===45||n===43||n===41?"t2":null;
+const WIN_GOOD=0.045,WIN_OK=0.10;
+$("#midiBtn").addEventListener("click",async()=>{if(!navigator.requestMIDIAccess){setMsg("#midiMsg","This browser has no MIDI support. Use Chrome.",true);return;}
+  try{const acc=await navigator.requestMIDIAccess();const hook=()=>{let n=0;acc.inputs.forEach(inp=>{inp.onmidimessage=onMidi;n++;});$("#midiMsg").innerHTML=n?`<span class="midi-ok">E-drums connected (${n} input${n>1?"s":""}). Play along and watch the rings.</span>`:"No MIDI input found. Is the module on and plugged in by USB?";};hook();acc.onstatechange=hook;}
+  catch(e){setMsg("#midiMsg","MIDI access was refused.",true);}});
+function onMidi(e){const [st,n,v]=e.data;if((st&0xF0)!==0x90||v===0)return;if(!chart||!src||!playing)return;const r=NOTE2ROW(n);if(!r)return;
+  const t=now();const pos=timeToPos(t);const sd=stepDur()/speed; // note: song time already scaled by player; windows are in song seconds
+  // candidate chart hits within window (song seconds -> steps)
+  const winOk=WIN_OK/stepDur();const lo=Math.floor(pos-winOk-1),hi=Math.ceil(pos+winOk+1);let best=null;
+  for(let s=lo;s<=hi;s++){const b=Math.floor(s/16),k=((s%16)+16)%16;if(b<0||b>=totalBars())continue;const alias=(r==="cy"||r==="rd")?["cy","rd"]:r==="t1"||r==="t2"?["t1","t2"]:[r];
+    for(const rr of alias){if(!chart.bars[b][rr][k])continue;const key=b+":"+rr+":"+k;if(matched.has(key))continue;const d=Math.abs((s-pos)*stepDur());if(best===null||d<best.d)best={d,key};}}
+  if(best&&best.d<=WIN_OK){matched.add(best.key);const g=best.d<=WIN_GOOD?"good":"ok";hitMarks.set(best.key,g);score[g]++;}else{score.extra++;}
+  updateScore();}
+function updateScore(){$("#sGood").textContent=score.good;$("#sOk").textContent=score.ok;
+  // missed = chart hits already passed (by > window) and unmatched, within played region
+  const t=src?now():0;const pos=timeToPos(t);let miss=0,total=0;const upto=Math.floor(pos-WIN_OK/stepDur());
+  for(let s=0;s<=upto&&s<totalBars()*16;s++){const b=Math.floor(s/16),k=s%16;for(const r of ROWS){if(!chart.bars[b][r][k])continue;total++;const key=b+":"+r+":"+k;if(!matched.has(key)){if(hitMarks.get(key)!=="miss"){hitMarks.set(key,"miss");}miss++;}}}
+  score.miss=miss;$("#sMiss").textContent=miss;const played=score.good+score.ok+miss;$("#sPct").textContent=played?Math.round((score.good+score.ok*0.5)/played*100)+"%":"–";}
+function resetScore(){score={good:0,ok:0,miss:0,extra:0};hitMarks.clear();matched.clear();$("#sGood").textContent="0";$("#sOk").textContent="0";$("#sMiss").textContent="0";$("#sPct").textContent="–";draw();}
+$("#resetScore").addEventListener("click",resetScore);
+setInterval(()=>{if(playing&&chart&&src&&matched.size)updateScore();},500);
+
+// =============================== ROUGH TRANSCRIPTION FROM AUDIO
+function fft(re,im){const n=re.length;for(let i=1,j=0;i<n;i++){let bit=n>>1;for(;j&bit;bit>>=1)j^=bit;j^=bit;if(i<j){let t=re[i];re[i]=re[j];re[j]=t;t=im[i];im[i]=im[j];im[j]=t;}}
+  for(let len=2;len<=n;len<<=1){const ang=-2*Math.PI/len,wr=Math.cos(ang),wi=Math.sin(ang);for(let i=0;i<n;i+=len){let cr=1,ci=0;for(let k=0;k<len/2;k++){const a=i+k,b=a+len/2;const tr=re[b]*cr-im[b]*ci,ti=re[b]*ci+im[b]*cr;re[b]=re[a]-tr;im[b]=im[a]-ti;re[a]+=tr;im[a]+=ti;const ncr=cr*wr-ci*wi;ci=cr*wi+ci*wr;cr=ncr;}}}}
+async function analyzeAudio(file){const c=ac();const buf=await c.decodeAudioData(await file.arrayBuffer());const sr=buf.sampleRate;const n=buf.length;const ch=buf.numberOfChannels;const x=new Float32Array(n);for(let k=0;k<ch;k++){const d=buf.getChannelData(k);for(let i=0;i<n;i++)x[i]+=d[i]/ch;}
+  const N=1024,H=256;const frames=Math.floor((n-N)/H);const win=new Float32Array(N);for(let i=0;i<N;i++)win[i]=0.5-0.5*Math.cos(2*Math.PI*i/N);
+  const bandOf=f=>Math.round(f/sr*N);const half=N/2;const B=[[bandOf(40),bandOf(110)],[bandOf(180),bandOf(600)],[bandOf(2000),bandOf(5000)],[bandOf(6000),Math.min(half,bandOf(14000))]].map(b=>[Math.min(b[0],half-1),Math.min(b[1],half)]); // low, mid, snare-noise, high
+  const E=B.map(()=>new Float32Array(frames));const re=new Float32Array(N),im=new Float32Array(N);
+  for(let f=0;f<frames;f++){const o=f*H;for(let i=0;i<N;i++){re[i]=x[o+i]*win[i];im[i]=0;}fft(re,im);
+    for(let b=0;b<B.length;b++){let e=0;for(let k=B[b][0];k<B[b][1];k++)e+=Math.sqrt(re[k]*re[k]+im[k]*im[k]);E[b][f]=Math.log1p(e);}
+    if(f%2000===0){setMsg("#anMsg","Analyzing… "+Math.round(f/frames*100)+"%");await new Promise(r=>setTimeout(r,0));}}
+  // spectral flux per band, normalised by each band's 95th percentile
+  const flux=E.map(e=>{const o=new Float32Array(frames);for(let i=1;i<frames;i++)o[i]=Math.max(0,e[i]-e[i-1]);return o;});
+  const p95=o=>{const v=Array.from(o).sort((a,b)=>a-b);return v[Math.floor(v.length*0.99)]||1;};
+  const nf=flux.map(o=>{const m=p95(o);const r=new Float32Array(frames);for(let i=0;i<frames;i++)r[i]=Math.min(1.5,o[i]/m);return r;});
+  const fps=sr/H;
+  const env=new Float32Array(frames);for(let i=0;i<frames;i++)env[i]=nf[0][i]*1.2+nf[1][i]*0.8+nf[2][i]+nf[3][i]*0.8;
+  // onset candidates on the combined envelope
+  const gap=Math.round(fps*0.05),w=Math.round(fps*0.3);const cands=[];
+  for(let i=1;i<frames-1;i++){if(env[i]<env[i-1]||env[i]<env[i+1])continue;let m=0,c=0;for(let k=Math.max(0,i-w);k<Math.min(frames,i+w);k++){m+=env[k];c++;}m/=c;
+    if(env[i]>m+0.25&&env[i]>0.45&&(cands.length===0||i-cands[cands.length-1]>gap))cands.push(i);}
+  const at=(band,i)=>Math.max(nf[band][i-1]||0,nf[band][i],nf[band][i+1]||0);
+  // tempo from the envelope's autocorrelation, coarse then fine
+  let bpm=chart&&chart.bpm?chart.bpm:0;
+  const score=b=>{const lag=60/b*fps;const l0=Math.floor(lag),fr=lag-l0;let s=0;for(let i=l0+1;i<frames;i++)s+=env[i]*(env[i-l0]*(1-fr)+env[i-l0-1]*fr);return s/(frames-l0);};
+  let bestB=120,best=-1;for(let b=60;b<=200;b+=0.5){const v=score(b);if(v>best){best=v;bestB=b;}}
+  for(let b=bestB-0.6;b<=bestB+0.6;b+=0.02){const v=score(b);if(v>best){best=v;bestB=b;}}
+  if(!bpm||Math.abs(bpm-bestB)>1.5)bpm=bestB;
+  // phase: quarter-note grid alignment maximising kick+snare energy on beats
+  const beatFr=60/bpm*fps;let bestPh=0,bestS=-1;for(let ph=0;ph<beatFr;ph+=0.5){let s=0;for(let t=ph;t<frames;t+=beatFr){const i=Math.round(t);s+=(nf[0][i]||0)+(nf[1][i]||0)+(nf[2][i]||0);}if(s>bestS){bestS=s;bestPh=ph;}}
+  let bestK=0,bestKS=-1;for(let k=0;k<4;k++){let s=0;for(let t=bestPh+k*beatFr,b=0;t<frames;t+=beatFr,b++){const i=Math.round(t);s+=b%2===0?(nf[0][i]||0):(nf[1][i]||0)+(nf[2][i]||0);}if(s>bestKS){bestKS=s;bestK=k;}}
+  let offset=(bestPh+bestK*beatFr)/fps;const barS=4*60/bpm;while(offset-barS>=0)offset-=barS;
+  const firstOn=cands.length?cands[0]/fps:0;while(offset+barS<firstOn-0.1)offset+=barS;
+  const sd=60/bpm/4;const dur=n/sr;const nb=Math.max(1,Math.ceil((dur-offset)/(sd*16)));const bars=Array.from({length:nb},emptyBar);
+  const lastT={};const put=(row,t,v)=>{if(lastT[row]!==undefined&&t-lastT[row]<0.09)return;lastT[row]=t;const st=Math.round((t-offset)/sd);if(st<0)return;const b=Math.floor(st/16),k=st%16;if(b>=nb)return;bars[b][row][k]=Math.max(bars[b][row][k],v);};
+  for(const i of cands){const low=at(0,i),mid=at(1,i),noise=at(2,i),high=at(3,i);const t=i/fps;
+    const isKick=low>0.3&&low>mid*1.1;
+    const isSnare=noise>0.5&&mid>0.3&&noise>low;
+    const isHat=high>0.35&&(high>noise*0.9||high>0.9);
+    if(isKick)put("kk",t,low>1.0?2:1);
+    if(isSnare)put("sn",t,noise>1.0?2:1);
+    if(isHat)put("hh",t,high>1.1?2:1);}
+  return {title:(file.name||"audio").replace(/\.[^.]+$/,"")+" (rough)",bpm:+bpm.toFixed(1),offset:+offset.toFixed(3),bars,sections:[{bar:0,name:"Start"}]};}
+$("#analyze").addEventListener("click",async()=>{if(!lastAudioFile)return;$("#analyze").disabled=true;try{const c=await analyzeAudio(lastAudioFile);setChart(c);setMsg("#anMsg","Done: "+c.bpm+" bpm, "+c.bars.length+" bars. Check the offset on the first bar, then fix wrong cells in Edit mode and mark sections.");}
+  catch(e){setMsg("#anMsg","Analysis failed: "+e.message,true);}$("#analyze").disabled=false;});
+
+// =============================== TOGGLES + KEYS
+function tog(id,get,set){$(id).addEventListener("click",()=>{set(!get());$(id).setAttribute("aria-pressed",String(get()));draw();});}
+tog("#loopBtn",()=>loop,v=>{loop=v;repeatCount=0;});tog("#repeatBtn",()=>repeat,v=>{repeat=v;repeatCount=0;if(v){loop=true;$("#loopBtn").setAttribute("aria-pressed","true");}});
+tog("#clickBtn",()=>clickOn,v=>{clickOn=v;if(v)ac();});tog("#countBtn",()=>countIn,v=>{countIn=v;});tog("#editBtn",()=>edit,v=>{edit=v;});
+document.addEventListener("keydown",e=>{if(["INPUT","SELECT","TEXTAREA"].includes(e.target.tagName))return;
+  if(e.code==="Space"){e.preventDefault();playPause();}
+  else if(e.key==="ArrowLeft"){e.preventDefault();const b=Math.max(0,(playing?Math.floor(timeToPos(now())/16):viewBar)-1);seek(barStartTime(b));viewBar=b;draw(b*16);}
+  else if(e.key==="ArrowRight"){e.preventDefault();const b=Math.min(totalBars()-1,(playing?Math.floor(timeToPos(now())/16):viewBar)+1);seek(barStartTime(b));viewBar=b;draw(b*16);}
+  else if(e.key==="l"||e.key==="L"){$("#loopBtn").click();}
+  else if(e.key==="["){$("#loopA").value=viewBar+1;draw();}else if(e.key==="]"){$("#loopB").value=viewBar+1;draw();}
+  else if(e.key==="e"||e.key==="E"){$("#editBtn").click();}});
+["#loopA","#loopB"].forEach(s=>$(s).addEventListener("change",()=>{repeatCount=0;draw();}));
+
+// boot
+renderSaved();resize();setChart(JSON.parse(JSON.stringify(LIB.yellow)));
+})();
+</script>
+<p style="max-width:900px;margin:0 auto;padding:0 16px 24px;color:#737C86;font-size:12px">YouTube only plays when this page is opened through "Start Play Along.command" (it serves the folder at localhost and opens Chrome). Nothing is downloaded from YouTube; the video plays through YouTube's own player. Local audio files work either way.</p>
+</body>
+</html>
